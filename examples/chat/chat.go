@@ -31,12 +31,9 @@ package main
 import (
 	"bufio"
 	"context"
-	"crypto/rand"
 	"flag"
 	"fmt"
-	"io"
 	"log"
-	mrand "math/rand"
 	"os"
 
 	"github.com/libp2p/go-libp2p-crypto"
@@ -45,8 +42,10 @@ import (
 	"github.com/libp2p/go-libp2p-peer"
 	"github.com/libp2p/go-libp2p-peerstore"
 	"github.com/libp2p/go-libp2p-swarm"
-	"github.com/libp2p/go-libp2p/p2p/host/basic"
 	"github.com/multiformats/go-multiaddr"
+
+	"github.com/dfinity/go-dfinity-crypto/bls"
+	"github.com/libp2p/go-libp2p/p2p/host/basic"
 )
 
 /*
@@ -133,7 +132,6 @@ func main() {
 	sourcePort := flag.Int("sp", 0, "Source port number")
 	dest := flag.String("d", "", "Dest MultiAddr String")
 	help := flag.Bool("help", false, "Display Help")
-	debug := flag.Bool("debug", true, "Debug generated same node id on every execution.")
 
 	flag.Parse()
 
@@ -144,22 +142,11 @@ func main() {
 		os.Exit(0)
 	}
 
-	// If debug is enabled used constant random source else cryptographic randomness.
-	var r io.Reader
-	if *debug {
-		// Constant random source. This will always generate the same host ID on multiple execution.
-		// Don't do this in production code.
-		r = mrand.New(mrand.NewSource(int64(*sourcePort)))
-	} else {
-		r = rand.Reader
-	}
-
-	// Creates a new RSA key pair for this host
-	prvKey, pubKey, err := crypto.GenerateKeyPairWithReader(crypto.RSA, 2048, r)
-
-	if err != nil {
-		panic(err)
-	}
+	bls.Init(int(bls.CurveFp254BNb))
+	var sk bls.SecretKey
+	sk.SetByCSPRNG()
+	prvKey := &crypto.BLSPrivKey{K: sk}
+	pubKey := prvKey.GetPublic()
 
 	// Getting host ID from public key.
 	// host ID is the hash of public key
